@@ -89,6 +89,24 @@
             <!-- Split Dropdown -->
             <MenuItem Header="_Split">
                 <MenuItem Header="Split by NPC" Click="SplitNpc_Click" />
+                <MenuItem Header="Split by Class" Click="SplitClass_Click" />
+                <MenuItem Header="Split by Faction" Click="SplitFaction_Click" />
+                <MenuItem Header="Split by Rank" Click="SplitRank_Click" />
+                <MenuItem Header="Split by PcRace" Click="SplitPcRace_Click" />
+                <MenuItem Header="Split by PcClass" Click="SplitPcClass_Click" />
+                <MenuItem Header="Split by PcRank" Click="SplitPcRank_Click" />
+            </MenuItem>
+
+            <!-- Auto Dropdown -->
+            <MenuItem Header="_Auto">
+                <MenuItem Header="Simple Autofill" Click="SimpleAuto_Click" />
+            </MenuItem>
+
+            <!-- Delete Dropdown -->
+            <MenuItem Header="_Delete">
+                <MenuItem Header="Revert selected line to original text" Click="Revert_Click" />
+                <MenuItem Header="Delete selected split line" Click="DeleteSingle_Click" />
+                <MenuItem Header="Delete all split lines matching selected parent" Click="DeleteSplit_Click" />
             </MenuItem>
         </Menu>
 

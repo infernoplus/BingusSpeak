@@ -2,6 +2,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
+using System.Net.WebSockets;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -85,6 +86,7 @@ namespace BingusSpeak
 
                             DialogRecord topic = esm.GetTopic(addition.topic);
                             DialogInfoRecord parent = esm.GetDialogInfo(addition.id);
+                            parent.parent = true;
                             int index = topic.infos.IndexOf(parent);
                             topic.infos.Insert(index, info);
                         }
@@ -130,7 +132,8 @@ namespace BingusSpeak
 
                     string txtColor;
                     if(dialog.split) { txtColor = "Blue"; }
-                    else if(!dialog.HasReplacement()) { txtColor = "Black"; }
+                    else if (dialog.parent) { txtColor = "Indigo"; }
+                    else if (!dialog.HasReplacement()) { txtColor = "Black"; }
                     else if (dialog.ReplacementHasVariable()) { txtColor = "Red"; }
                     else { txtColor = "Green"; }
 
@@ -197,6 +200,14 @@ namespace BingusSpeak
         private DialogItem CurrentlyEditing = null;
         private void UpdateEditor(DialogItem item)
         {
+            if (item == null)
+            {
+                EditorInfo.Text = "";
+                NpcInfo.Text = "";
+                CurrentlyEditing = item;
+                return;
+            }
+
             EditorText.Text = item.dialog.GetText();
             string nfo = $"Topic - {item.topic.id}\r\n{item.dialog.used.Count()} NPCs use this line\r\n";
             if (item.dialog.speaker != null) { nfo += $"Only used by '{item.dialog.speaker}'\r\n"; }
@@ -239,6 +250,7 @@ namespace BingusSpeak
 
             string txtColor;
             if (CurrentlyEditing.dialog.split) { txtColor = "Blue"; }
+            else if (CurrentlyEditing.dialog.parent) { txtColor = "Indigo"; }
             else if (!CurrentlyEditing.dialog.HasReplacement()) { txtColor = "Black"; }
             else if (CurrentlyEditing.dialog.ReplacementHasVariable()) { txtColor = "Red"; }
             else { txtColor = "Green"; }
@@ -251,11 +263,13 @@ namespace BingusSpeak
 
         private void SplitNpc_Click(object sender, RoutedEventArgs e)
         {
+            if (esm == null || CurrentlyEditing == null) { return; }
+
             if (esm == null) { return; } // guh
 
             DialogRecord topic = CurrentlyEditing.topic;
             DialogInfoRecord dialog = CurrentlyEditing.dialog;
-            if (dialog.split)
+            if (dialog.split || dialog.parent)
             {
                 MessageBox.Show($"Cannot split a line twice!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
@@ -336,10 +350,420 @@ namespace BingusSpeak
             }
 
             // Insert these new lines directly into the dialog list in esm. placing them ABOVE the original line we split from so they take priority
+            dialog.parent = true;
             int index = topic.infos.IndexOf(dialog);
             topic.infos.InsertRange(index, lines);
 
             // Regenerate list in ui
+            UpdateList();
+        }
+
+        private void SplitClass_Click(object sender, RoutedEventArgs e)
+        {
+            if (esm == null || CurrentlyEditing == null) { return; }
+
+            DialogRecord topic = CurrentlyEditing.topic;
+            DialogInfoRecord dialog = CurrentlyEditing.dialog;
+
+            // Sanity checks
+            if (dialog.split || dialog.parent)
+            {
+                MessageBox.Show($"Cannot split a line twice!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (dialog.used.Count() <= 1)
+            {
+                MessageBox.Show($"Selected dialog line is only used by one NPC, no need to split!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (!dialog.HasVariable(DialogInfoRecord.Variable.Class))
+            {
+                MessageBox.Show($"Selected dialog line does not have a %Class variable!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Prompt
+            List<JobInfo> jobs = new();
+            foreach (CharacterContent content in dialog.used)
+            {
+                if (content.job != null)
+                {
+                    JobInfo job = esm.GetJob(content.job);
+                    if (job != null && !jobs.Contains(job))
+                    {
+                        jobs.Add(job);
+                    }
+                }
+            }
+            if (MessageBox.Show($"Split this line for {jobs.Count()} classes?", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
+
+            // Generate new lines for each npc in the chars list
+            List<DialogInfoRecord> lines = new();
+            foreach (JobInfo job in jobs)
+            {
+                DialogInfoRecord line = dialog.Split(esm, job);
+                lines.Add(line);
+            }
+
+            // Insert these new lines directly into the dialog list in esm. placing them ABOVE the original line we split from so they take priority
+            dialog.parent = true;
+            int index = topic.infos.IndexOf(dialog);
+            topic.infos.InsertRange(index, lines);
+
+            // Regenerate list in ui
+            UpdateList();
+        }
+
+        private void SplitFaction_Click(object sender, RoutedEventArgs e)
+        {
+            if (esm == null || CurrentlyEditing == null) { return; }
+
+            DialogRecord topic = CurrentlyEditing.topic;
+            DialogInfoRecord dialog = CurrentlyEditing.dialog;
+
+            // Sanity checks
+            if (dialog.split || dialog.parent)
+            {
+                MessageBox.Show($"Cannot split a line twice!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (dialog.used.Count() <= 1)
+            {
+                MessageBox.Show($"Selected dialog line is only used by one NPC, no need to split!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if ( !dialog.HasVariable(DialogInfoRecord.Variable.Faction))
+            {
+                MessageBox.Show($"Selected dialog line does not have a %Faction variable!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Prompt
+            List<FactionInfo> factions = new();
+            foreach(CharacterContent content in dialog.used)
+            {
+                if (content.faction != null)
+                {
+                    FactionInfo faction = esm.GetFaction(content.faction);
+                    if (faction != null && !factions.Contains(faction))
+                    {
+                        factions.Add(faction);
+                    }
+                }
+            }
+            if (MessageBox.Show($"Split this line for {factions.Count()} factions?", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
+
+            // Generate new lines for each npc in the chars list
+            List<DialogInfoRecord> lines = new();
+            foreach (FactionInfo faction in factions)
+            {
+                DialogInfoRecord line = dialog.Split(esm, faction);
+                lines.Add(line);
+            }
+
+            // Insert these new lines directly into the dialog list in esm. placing them ABOVE the original line we split from so they take priority
+            dialog.parent = true;
+            int index = topic.infos.IndexOf(dialog);
+            topic.infos.InsertRange(index, lines);
+
+            // Regenerate list in ui
+            UpdateList();
+        }
+
+        private void SplitRank_Click(object sender, RoutedEventArgs e)
+        {
+            if (esm == null || CurrentlyEditing == null) { return; }
+
+            DialogRecord topic = CurrentlyEditing.topic;
+            DialogInfoRecord dialog = CurrentlyEditing.dialog;
+
+            // Sanity checks
+            if (dialog.split || dialog.parent)
+            {
+                MessageBox.Show($"Cannot split a line twice!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (dialog.used.Count() <= 1)
+            {
+                MessageBox.Show($"Selected dialog line is only used by one NPC, no need to split!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (!dialog.HasVariable(DialogInfoRecord.Variable.Rank))
+            {
+                MessageBox.Show($"Selected dialog line does not have a %Rank variable!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Prompt
+            List<(FactionInfo faction, int rank)> franks = new();  // faction + rank :)
+            foreach (CharacterContent content in dialog.used)
+            {
+                if (content.faction != null)
+                {
+                    FactionInfo faction = esm.GetFaction(content.faction);
+                    if (faction != null && !franks.Contains((faction, content.rank)))
+                    {
+                        franks.Add((faction, content.rank));
+                    }
+                }
+            }
+            if (MessageBox.Show($"Split this line for {franks.Count()} faction and rank combinations?", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
+
+            // Generate new lines for each npc in the chars list
+            franks = franks.OrderByDescending(f => f.rank).ToList(); // sort higher ranks first as the rank filter is a >= so lower ranks must be last or they make higher ones unreachable
+            List<DialogInfoRecord> lines = new();
+            foreach ((FactionInfo faction, int rank) in franks)
+            {
+                DialogInfoRecord line = dialog.Split(esm, faction, rank);
+                lines.Add(line);
+            }
+
+            // Insert these new lines directly into the dialog list in esm. placing them ABOVE the original line we split from so they take priority
+            dialog.parent = true;
+            int index = topic.infos.IndexOf(dialog);
+            topic.infos.InsertRange(index, lines);
+
+            // Regenerate list in ui
+            UpdateList();
+        }
+
+        private void SplitPcRace_Click(object sender, RoutedEventArgs e)
+        {
+            if (esm == null || CurrentlyEditing == null) { return; }
+
+            DialogRecord topic = CurrentlyEditing.topic;
+            DialogInfoRecord dialog = CurrentlyEditing.dialog;
+
+            // Sanity checks
+            if (dialog.split || dialog.parent)
+            {
+                MessageBox.Show($"Cannot split a line twice!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (!dialog.HasVariable(DialogInfoRecord.Variable.PcRace))
+            {
+                MessageBox.Show($"Selected dialog line does not have a %PcRace variable!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Prompt
+            List<CharacterContent.Race> races = new()
+            {
+                CharacterContent.Race.Argonian, CharacterContent.Race.Breton, CharacterContent.Race.DarkElf, CharacterContent.Race.HighElf,
+                CharacterContent.Race.Imperial, CharacterContent.Race.Khajiit, CharacterContent.Race.Nord, CharacterContent.Race.Orc, 
+                CharacterContent.Race.Redguard, CharacterContent.Race.WoodElf
+            };
+            if (MessageBox.Show($"Split this line for {races.Count()} player races?", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
+
+            // Create lines
+            List<DialogInfoRecord> lines = new();
+            foreach (CharacterContent.Race race in races)
+            {
+                DialogInfoRecord line = dialog.SplitPc(esm, race);
+                lines.Add(line);
+            }
+
+            // Insert these new lines directly into the dialog list in esm. placing them ABOVE the original line we split from so they take priority
+            dialog.parent = true;
+            int index = topic.infos.IndexOf(dialog);
+            topic.infos.InsertRange(index, lines);
+
+            // Regenerate list in ui
+            UpdateList();
+        }
+        public enum PlayerJob { Warrior = 0, Archer = 1, Sorcerer = 2, Monk = 3, Thief = 4, Barbarian = 5, Knight = 6, Spellsword = 7, Bard = 8, Pilgrim = 9 }
+        private void SplitPcClass_Click(object sender, RoutedEventArgs e)
+        {
+            if (esm == null || CurrentlyEditing == null) { return; }
+
+            DialogRecord topic = CurrentlyEditing.topic;
+            DialogInfoRecord dialog = CurrentlyEditing.dialog;
+
+            // Sanity checks
+            if (dialog.split || dialog.parent)
+            {
+                MessageBox.Show($"Cannot split a line twice!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (!dialog.HasVariable(DialogInfoRecord.Variable.PcClass))
+            {
+                MessageBox.Show($"Selected dialog line does not have a %PcClass variable!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Prompt
+            List<PlayerJob> jobs = Enum.GetValues(typeof(PlayerJob)).Cast<PlayerJob>().ToList();
+            if (MessageBox.Show($"Split this line for {jobs.Count()} player classes?", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
+
+            // Create lines
+            List<DialogInfoRecord> lines = new();
+            foreach (PlayerJob job in jobs)
+            {
+                DialogInfoRecord line = dialog.SplitPc(esm, job);
+                lines.Add(line);
+            }
+
+            // Insert these new lines directly into the dialog list in esm. placing them ABOVE the original line we split from so they take priority
+            dialog.parent = true;
+            int index = topic.infos.IndexOf(dialog);
+            topic.infos.InsertRange(index, lines);
+
+            // Regenerate list in ui
+            UpdateList();
+        }
+
+        private void SplitPcRank_Click(object sender, RoutedEventArgs e)
+        {
+            if(esm == null || CurrentlyEditing == null) { return; }
+
+            DialogRecord topic = CurrentlyEditing.topic;
+            DialogInfoRecord dialog = CurrentlyEditing.dialog;
+
+            // Sanity checks
+            if (dialog.split || dialog.parent)
+            {
+                MessageBox.Show($"Cannot split a line twice!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (!dialog.HasVariable(DialogInfoRecord.Variable.PcRank) && !dialog.HasVariable(DialogInfoRecord.Variable.PcNextRank) && !dialog.HasVariable(DialogInfoRecord.Variable.NextPcRank))
+            {
+                MessageBox.Show($"Selected dialog line does not have a %PcRank variable!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (dialog.faction == null && dialog.speaker == null)
+            {
+                MessageBox.Show($"This line appear to be 'faction anonymous' which makes splitting unfeasible.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Prompt
+            FactionInfo faction;
+            if(dialog.faction != null)
+            {
+                faction = esm.GetFaction(dialog.faction);
+            }
+            else
+            {
+                Record speakerRecord = esm.FindRecordById(dialog.speaker);
+                string factionId = speakerRecord.json["faction"].GetValue<string>();
+                faction = esm.GetFaction(factionId);
+            }
+
+            if (MessageBox.Show($"Split this line for the {faction.ranks.Count()} ranks of the {faction.name}?", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
+
+            // Create lines
+            List<DialogInfoRecord> lines = new();
+            for(int i=Math.Max(0, dialog.playerRank);i<faction.ranks.Count();i++)
+            {
+                DialogInfoRecord line = dialog.SplitPc(esm, faction, i);
+                lines.Add(line);
+            }
+
+            // Reorder these new lines so higher rank requirements are first, without this the high rank lines are unreacahble as the low rank ones come first
+            lines = lines.OrderByDescending(l => l.playerRank).ToList();
+
+            // Insert these new lines directly into the dialog list in esm. placing them ABOVE the original line we split from so they take priority
+            dialog.parent = true;
+            int index = topic.infos.IndexOf(dialog);
+            topic.infos.InsertRange(index, lines);
+
+            // Regenerate list in ui
+            UpdateList();
+        }
+
+        /* Fills out variables that are used by single npcs */
+        private void SimpleAuto_Click(object sender, RoutedEventArgs e)
+        {
+            if (esm == null) { return; }
+
+            if (MessageBox.Show($"This will autofill a bunch of variables for lines that are only used by 1 npc.", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
+
+            foreach (DialogRecord topic in esm.dialog)
+            {
+                foreach(DialogInfoRecord dialog in topic.infos)
+                {
+                    if(dialog.HasVariable() && dialog.used.Count() == 1)
+                    {
+                        CharacterContent content = dialog.used[0];
+                        string cellName = content.cell.name != null ? content.cell.name : "nowhere";  // %cell is literally unused in base game so whatever man lol
+                        FactionInfo factionInfo = esm.GetFaction(content.faction);
+                        string rankName = factionInfo != null ? factionInfo.GetRankName(content.rank) : "unaffiliated";
+
+                        string newText = dialog.GetText()
+                            .Replace("%name", content.name, StringComparison.OrdinalIgnoreCase)
+                            .Replace("%class", content.job, StringComparison.OrdinalIgnoreCase)
+                            .Replace("%race", content.race.ToString(), StringComparison.OrdinalIgnoreCase)
+                            .Replace("%cell", cellName, StringComparison.OrdinalIgnoreCase)
+                            .Replace("%faction", content.faction, StringComparison.OrdinalIgnoreCase)
+                            .Replace("%rank", rankName, StringComparison.OrdinalIgnoreCase);
+
+                        dialog.replacement = newText;
+                    }
+                }
+            }
+            UpdateList();
+        }
+
+        /* Revert selected line text */
+        private void Revert_Click(object sender, RoutedEventArgs e)
+        {
+            if (esm == null || CurrentlyEditing == null) { return; }
+            CurrentlyEditing.dialog.replacement = null;
+            UpdateEditor(CurrentlyEditing);
+            UpdateList();
+        }
+
+        /* Delete selected split line */
+        private void DeleteSingle_Click(object sender, RoutedEventArgs e)
+        {
+            if (esm == null || CurrentlyEditing == null) { return; }
+
+            DialogRecord topic = CurrentlyEditing.topic;
+            DialogInfoRecord deleteMe = CurrentlyEditing.dialog;
+
+            if (!deleteMe.split) { MessageBox.Show($"We can only delete lines we added via splits. Lines created from splits are blue. You cannot delete normal lines. You can revert them to their original text though if you want.", "Error", MessageBoxButton.OK, MessageBoxImage.Error); return; }
+
+            topic.infos.Remove(deleteMe);
+
+            CurrentlyEditing = null;
+            UpdateEditor(null);
+            UpdateList();
+        }
+
+        /* Delete all split lines with the same parent */
+        private void DeleteSplit_Click(object sender, RoutedEventArgs e)
+        {
+            if (esm == null || CurrentlyEditing == null) { return; }
+
+            DialogRecord topic = CurrentlyEditing.topic;
+            DialogInfoRecord dialog = CurrentlyEditing.dialog;
+            Int128 deleteMe = CurrentlyEditing.dialog.trueId;
+
+            if (!dialog.parent) { MessageBox.Show($"Please select the original line that was split if you want to 'undo' splitting it. The original line is a indigo color and below the split lines in the list.", "Error", MessageBoxButton.OK, MessageBoxImage.Error); return; }
+
+            for (int i=0;i<topic.infos.Count();i++)
+            {
+                DialogInfoRecord info = topic.infos[i];
+                if(info.trueId == deleteMe && info.split)
+                {
+                    topic.infos.RemoveAt(i);
+                    i--;
+                }
+            }
+
+            dialog.parent = false;
+            CurrentlyEditing = null;
+            UpdateEditor(null);
             UpdateList();
         }
 
