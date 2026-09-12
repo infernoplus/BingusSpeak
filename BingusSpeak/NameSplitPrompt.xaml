@@ -1,0 +1,18 @@
+﻿<Window x:Class="BingusSpeak.NameSplitPrompt"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BingusSpeak"
+        mc:Ignorable="d"
+        Title="Split on %Name" Height="155" Width="350"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid>
+        <StackPanel Margin="15">
+            <Button x:Name="ButtonAll" Content="Split for all X NPCs" Width="300" IsDefault="True" Click="SplitNameAll_Click" />
+            <Button x:Name="ButtonImportant" Content="Split for only X important NPCs" Width="300" IsDefault="True" Click="SplitNameImportant_Click" />
+            <Button x:Name="ButtonUnique" Content="Split for only X unique voiced NPCs" Width="300" IsDefault="True" Click="SplitNameUnique_Click" />
+            <Button x:Name="ButtonCancel" Content="Cancel" Width="300" IsDefault="True" Click="SplitNameCancel_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

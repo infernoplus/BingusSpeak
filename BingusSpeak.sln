@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36109.1 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BingusSpeak", "BingusSpeak\BingusSpeak.csproj", "{943EBF7E-CBA6-4898-B426-53A767E0D1DA}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{943EBF7E-CBA6-4898-B426-53A767E0D1DA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{943EBF7E-CBA6-4898-B426-53A767E0D1DA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{943EBF7E-CBA6-4898-B426-53A767E0D1DA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{943EBF7E-CBA6-4898-B426-53A767E0D1DA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C904BA70-5B1E-4862-A104-5C14895F6E53}
+	EndGlobalSection
+EndGlobal
