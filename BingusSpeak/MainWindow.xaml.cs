@@ -95,8 +95,11 @@ namespace BingusSpeak
                     // Lastly load custom voice overrides. This file is in the JortPob project and when JortPob builds it copies this file to the cache folder.
                     // We are assuming that this program is always used in combinatino with a build JortPob project and the morrowind.json will be in the cache folder next to custom_voice_list.json
                     string customPath = Path.Combine(Path.GetDirectoryName(FilePath), "text", "custom_voice_list.json");
-                    string customJson = File.ReadAllText(customPath);
-                    List<string> topics = JsonSerializer.Deserialize<List<string>>(customJson);
+                    if (Path.Exists(customPath))
+                    {
+                        string customJson = File.ReadAllText(customPath);
+                        customVoices = JsonSerializer.Deserialize<List<string>>(customJson);
+                    }
                 }
                 catch (IOException ex)
                 {
