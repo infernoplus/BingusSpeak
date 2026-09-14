@@ -227,9 +227,10 @@ namespace BingusSpeak
             {
                 string newText = text.Replace("%pcrace", raceVal.ToString(), StringComparison.OrdinalIgnoreCase);
 
-                DialogInfoRecord info = new(trueId, type, speaker, job, faction, cell, rank, race, sex, playerFaction, disposition, playerRank, filters, text, mp3, script);
+                DialogInfoRecord info = new(trueId, type, speaker, job, faction, cell, rank, race, sex, playerFaction, disposition, playerRank, new(), text, mp3, script);
                 info.replacement = newText;
                 info.used.AddRange(used); // line splits for player variables like PcRace don't change the 'used by' list at all
+                info.filters.AddRange(filters);
                 info.filters.Add(new DialogFilter(DialogFilter.Type.Global, DialogFilter.Function.VariableCompare, DialogFilter.Operator.Equal, "PCRace", (int)raceVal));
                 return info;
             }
@@ -238,9 +239,10 @@ namespace BingusSpeak
             {
                 string newText = text.Replace("%pcclass", jobVal.ToString(), StringComparison.OrdinalIgnoreCase);
 
-                DialogInfoRecord info = new(trueId, type, speaker, job, faction, cell, rank, race, sex, playerFaction, disposition, playerRank, filters, text, mp3, script);
+                DialogInfoRecord info = new(trueId, type, speaker, job, faction, cell, rank, race, sex, playerFaction, disposition, playerRank, new(), text, mp3, script);
                 info.replacement = newText;
                 info.used.AddRange(used); // line splits for player variables like PcRace don't change the 'used by' list at all
+                info.filters.AddRange(filters);
                 info.filters.Add(new DialogFilter(DialogFilter.Type.Global, DialogFilter.Function.VariableCompare, DialogFilter.Operator.Equal, "PCClass", (int)jobVal)); // THIS IS NOT A REAL MORROWIND FILTER, THIS IS A WACKY HACK @TODO:
                 return info;
             }
