@@ -254,6 +254,10 @@ namespace BingusSpeak
             {
                 uz += $"{content.id}, ";
             }
+            if(!string.IsNullOrEmpty(item.dialog.script))
+            {
+                uz += $"\r\n\r\n{item.dialog.script}";
+            }
             if (item.dialog.HasVariable(DialogInfoRecord.Variable.PcRank) || item.dialog.HasVariable(DialogInfoRecord.Variable.NextPcRank) || item.dialog.HasVariable(DialogInfoRecord.Variable.PcNextRank))
             {
                 // add a cheatsheet for pcrank vars (helpful!)
