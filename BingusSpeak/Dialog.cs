@@ -255,7 +255,7 @@ namespace BingusSpeak
                     .Replace("%pcnextrank", nextRankName, StringComparison.OrdinalIgnoreCase)
                     .Replace("%nextpcrank", nextRankName, StringComparison.OrdinalIgnoreCase);
 
-                DialogInfoRecord info = new(trueId, type, speaker, job, faction, cell, rank, race, sex, playerFaction, disposition, factionRank, filters, text, mp3, script);
+                DialogInfoRecord info = new(trueId, type, speaker, job, faction, cell, rank, race, sex, playerFaction, disposition, factionRank+1, filters, text, mp3, script);
                 info.replacement = newText;
                 info.used.AddRange(used); // line splits for player variables like PcRace don't change the 'used by' list at all
                 return info;
@@ -291,6 +291,40 @@ namespace BingusSpeak
             public bool HasReplacement()
             {
                 return replacement != null && replacement != text;
+            }
+
+            public bool HasFilter(DialogFilter other)
+            {
+                foreach (DialogFilter filter in filters)
+                {
+                    if (filter == other) { return true; }
+                }
+                return false;
+            }
+
+            public bool HasSameFilters(DialogInfoRecord other)
+            {
+                if(filters.Count() != other.filters.Count()) { return false; }
+                foreach(DialogFilter o in other.filters)
+                {
+                    if(!HasFilter(o)) { return false; }
+                }
+                return true;
+            }
+
+            public bool HasOnlyFilter(DialogFilter other)
+            {
+                if (filters.Count() != 1) { return false; }
+                return HasFilter(other);
+            }
+
+            public DialogFilter GetFilterOfType(DialogFilter.Type type, DialogFilter.Function function)
+            {
+                foreach(DialogFilter filter in filters)
+                {
+                    if(filter.type == type && filter.function == function) { return filter; }
+                }
+                return null;
             }
 
             public bool IsUnreachableFor(CharacterContent npc)
@@ -459,6 +493,20 @@ namespace BingusSpeak
             public DialogFilter(Type type, Function function, Operator op, string id, int value)
             {
                 this.type = type; this.function = function; this.op = op; this.id = id; this.value = value;
+            }
+
+            public static bool operator ==(DialogFilter a, DialogFilter b)
+            {
+                if (a is null && b is null) { return true; }
+                if ((a is null && b is not null) || (a is not null && b is null)) { return false; }
+                return a.type == b.type && a.function == b.function && a.op == b.op && a.id == b.id && a.value == b.value;
+            }
+
+            public static bool operator !=(DialogFilter a, DialogFilter b)
+            {
+                if (a is null && b is null) { return false; }
+                if ((a is null && b is not null) || (a is not null && b is null)) { return true; }
+                return a.type != b.type || a.function != b.function || a.op != b.op || a.id != b.id || a.value != b.value;
             }
 
             /* Resolve the comparison value for 0=False / 1=True style filter conditions. EX: SameRace or SameFaction */

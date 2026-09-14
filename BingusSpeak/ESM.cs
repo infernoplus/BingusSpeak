@@ -343,6 +343,12 @@ namespace BingusSpeak
         }
 
         public string GetRankName(int rank) { if (rank < 0) { return "nobody"; } if (rank >= ranks.Count()) { return "member"; } return ranks[rank].name; }
+        public int GetMaxRank()
+        {
+            int max = 0;
+            foreach (Rank rank in ranks) { if (max < rank.level) { max = rank.level; } }
+            return max;
+        }
 
         public List<(string id, int value)> GetHighReactions()
         {

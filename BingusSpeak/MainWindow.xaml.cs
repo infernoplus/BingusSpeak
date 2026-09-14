@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Media.Media3D;
 using static BingusSpeak.Dialog;
 
 namespace BingusSpeak
@@ -75,11 +76,11 @@ namespace BingusSpeak
                             }
                             dialog.replacement = replacement.replacement;
                         }
-                        foreach(DataAddition addition in data.additions)
+                        foreach (DataAddition addition in data.additions)
                         {
                             DialogInfoRecord info = new(
                                 addition.id, addition.type, addition.speaker, addition.job, addition.faction, addition.cell, addition.rank,
-                                addition.race, addition.sex, addition.playerFaction, addition.disposition, addition.playerRank, 
+                                addition.race, addition.sex, addition.playerFaction, addition.disposition, addition.playerRank,
                                 addition.filters, addition.text, addition.mp3, addition.script
                             );
                             info.replacement = addition.replacement;
@@ -110,6 +111,28 @@ namespace BingusSpeak
 
                 UpdateList();
             }
+
+            /* Hack for nowabi */
+            /*
+            Dictionary<string, int> uniques = new();
+            foreach (DialogRecord topic in esm.dialog)
+            {
+                foreach (DialogInfoRecord dialog in topic.infos)
+                {
+                    if(dialog.used.Count() == 1)
+                    {
+                        if(uniques.ContainsKey(dialog.used[0].id)) { uniques[dialog.used[0].id]++; }
+                        else { uniques.Add(dialog.used[0].id, 1); }
+                    }
+                }
+            }
+
+            string stringy = "";
+            foreach (var kvp in uniques)
+            {
+                stringy += $"{kvp.Key},{kvp.Value};";
+            }
+            int x = 69; */
         }
 
         private void UpdateList()
@@ -230,6 +253,32 @@ namespace BingusSpeak
             foreach(CharacterContent content in item.dialog.used)
             {
                 uz += $"{content.id}, ";
+            }
+            if (item.dialog.HasVariable(DialogInfoRecord.Variable.PcRank) || item.dialog.HasVariable(DialogInfoRecord.Variable.NextPcRank) || item.dialog.HasVariable(DialogInfoRecord.Variable.PcNextRank))
+            {
+                // add a cheatsheet for pcrank vars (helpful!)
+                FactionInfo faction;
+                if (item.dialog.playerFaction != null)
+                {
+                    faction = esm.GetFaction(item.dialog.playerFaction);
+                }
+                else if (item.dialog.faction != null)
+                {
+                    faction = esm.GetFaction(item.dialog.faction);
+                }
+                else
+                {
+                    Record speakerRecord = esm.FindRecordById(item.dialog.speaker);
+                    string factionId = speakerRecord.json["faction"].GetValue<string>();
+                    faction = esm.GetFaction(factionId);
+                }
+
+                string rankCheatSheet = "\r\n";
+                foreach (FactionInfo.Rank rank in faction.ranks)
+                {
+                    rankCheatSheet += $"\r\n{rank.level} : {rank.name}";
+                }
+                uz += rankCheatSheet;
             }
             EditorInfo.Text = nfo;
             NpcInfo.Text = uz;
@@ -648,7 +697,11 @@ namespace BingusSpeak
 
             // Prompt
             FactionInfo faction;
-            if(dialog.faction != null)
+            if (dialog.playerFaction != null)
+            {
+                faction = esm.GetFaction(dialog.playerFaction);
+            }
+            else if (dialog.faction != null)
             {
                 faction = esm.GetFaction(dialog.faction);
             }
@@ -659,11 +712,11 @@ namespace BingusSpeak
                 faction = esm.GetFaction(factionId);
             }
 
-            if (MessageBox.Show($"Split this line for the {faction.ranks.Count()} ranks of the {faction.name}?", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
+            if (MessageBox.Show($"Split this line for the {faction.ranks.Count() - (dialog.playerRank - 1)} ranks of the {faction.name}?", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
 
             // Create lines
             List<DialogInfoRecord> lines = new();
-            for(int i=Math.Max(0, dialog.playerRank);i<faction.ranks.Count();i++)
+            for(int i=Math.Max(0, dialog.playerRank - 1);i<faction.ranks.Count();i++)
             {
                 DialogInfoRecord line = dialog.SplitPc(esm, faction, i);
                 lines.Add(line);
@@ -686,13 +739,16 @@ namespace BingusSpeak
         {
             if (esm == null) { return; }
 
-            if (MessageBox.Show($"This will autofill a bunch of variables for lines that are only used by 1 npc.", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
+            if (MessageBox.Show($"This will autofill a bunch of variables for lines that are only used by 1 npc. It will also autofill some %PcRank variables that only have one possible outcome.", "Confirm Action", MessageBoxButton.YesNo) == MessageBoxResult.No) { return; }
 
             foreach (DialogRecord topic in esm.dialog)
             {
-                foreach(DialogInfoRecord dialog in topic.infos)
+                for (int i = 0; i < topic.infos.Count(); i++)
                 {
-                    if(dialog.HasVariable() && dialog.used.Count() == 1)
+                    DialogInfoRecord dialog = topic.infos[i];
+
+                    // Handle lines that only use by one npc, auto fill them where possible
+                    if (dialog.HasVariable() && dialog.used.Count() == 1)
                     {
                         CharacterContent content = dialog.used[0];
                         string cellName = content.cell.name != null ? content.cell.name : "nowhere";  // %cell is literally unused in base game so whatever man lol
@@ -708,6 +764,70 @@ namespace BingusSpeak
                             .Replace("%rank", rankName, StringComparison.OrdinalIgnoreCase);
 
                         dialog.replacement = newText;
+                    }
+
+                    // Handle %pcrank vars that have filters that make it only possible for a single rank to be used on it
+                    if (dialog.HasVariable(DialogInfoRecord.Variable.PcRank) || dialog.HasVariable(DialogInfoRecord.Variable.PcNextRank) || dialog.HasVariable(DialogInfoRecord.Variable.NextPcRank))
+                    {
+                        FactionInfo faction;
+                        if (dialog.playerFaction != null)
+                        {
+                            faction = esm.GetFaction(dialog.playerFaction);
+                        }
+                        else if (dialog.faction != null)
+                        {
+                            faction = esm.GetFaction(dialog.faction);
+                        }
+                        else if (dialog.speaker != null)
+                        {
+                            Record speakerRecord = esm.FindRecordById(dialog.speaker);
+                            string factionId = speakerRecord.json["faction"].GetValue<string>();
+                            faction = esm.GetFaction(factionId);
+                        }
+                        else { continue; }  // FOR FUCKS SAKE
+
+                        bool isSingleRank = false;
+
+                        for(int j = i-1;j>=0;j--)
+                        {
+                            DialogInfoRecord above = topic.infos[j];
+                            if
+                            (
+                                ((dialog.faction == above.faction && dialog.faction != null) || (dialog.speaker == above.speaker && dialog.speaker != null)) &&
+                                dialog.playerRank + 1 == above.playerRank
+                            )
+                            {
+                                if (above.HasSameFilters(dialog))
+                                {
+                                    isSingleRank = true;
+                                    break;
+                                }
+
+                                DialogFilter rankReq = dialog.GetFilterOfType(DialogFilter.Type.Function, DialogFilter.Function.RankRequirement);
+                                if (rankReq != null && above.HasOnlyFilter(rankReq))
+                                {
+                                    isSingleRank = true;
+                                    break;
+                                }
+
+                                if(faction.GetMaxRank() == dialog.playerRank)
+                                {
+                                    isSingleRank = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if(isSingleRank)
+                        {
+                            string rankName = faction.GetRankName(dialog.playerRank);
+                            string nextRankName = faction.GetRankName(dialog.playerRank+1);
+                            string newText = dialog.GetText()
+                                .Replace("%pcrank", rankName, StringComparison.OrdinalIgnoreCase)
+                                .Replace("%pcnextrank", nextRankName, StringComparison.OrdinalIgnoreCase)
+                                .Replace("%nextpcrank", nextRankName, StringComparison.OrdinalIgnoreCase);
+                            dialog.replacement = newText;
+                        }
                     }
                 }
             }
