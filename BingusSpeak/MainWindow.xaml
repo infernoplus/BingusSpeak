@@ -4,9 +4,22 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BingusSpeak"
+        xmlns:scm="clr-namespace:System.ComponentModel;assembly=WindowsBase"
         mc:Ignorable="d"
         Title="Bingus Speak" Height="900" Width="1400">
     <Window.Resources>
+        <CollectionViewSource x:Key="MyGroupedView" Source="{Binding MyObservableCollection}">
+            <!-- Tells WPF how to group the items -->
+            <CollectionViewSource.GroupDescriptions>
+                <PropertyGroupDescription PropertyName="CategoryName"/>
+            </CollectionViewSource.GroupDescriptions>
+
+            <!-- FORCES both machines to sort alphabetically by CategoryName -->
+            <CollectionViewSource.SortDescriptions>
+                <scm:SortDescription PropertyName="CategoryName" Direction="Ascending"/>
+            </CollectionViewSource.SortDescriptions>
+        </CollectionViewSource>
+
         <!-- Custom Template to change the Expander's Arrow to a traditional Plus/Minus -->
         <ControlTemplate x:Key="ClassicPlusMinusExpander" TargetType="{x:Type Expander}">
             <Grid>

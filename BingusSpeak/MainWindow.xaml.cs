@@ -2,12 +2,10 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
-using System.Net.WebSockets;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Media.Media3D;
 using static BingusSpeak.Dialog;
 
 namespace BingusSpeak
