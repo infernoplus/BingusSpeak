@@ -144,6 +144,7 @@ namespace BingusSpeak
                 foreach (Content content in cell.contents)
                 {
                     if (content is not CharacterContent cc) { continue; }
+                    if (cc.dead) { continue; } // skip dead npcs for various reasons
 
                     var dialog = GetDialog(cc);
                     foreach (var (topic, infos) in dialog)
